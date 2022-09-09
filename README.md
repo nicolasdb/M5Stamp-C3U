@@ -1,9 +1,9 @@
-## This is an example ~~PlatformIO~~ ARDUINO IDE project for M5Stamp C3U
+## This is an example PlatformIO project for M5Stamp C3U
 Internal led will change its color with each press on the button.
 
 
-~~Everything adjusted in platformio.ini~~
-~~Just build and upload~~
+Everything adjusted in platformio.ini
+Just build and upload
 
 Project forked to explore how to use this board.   
 
