@@ -13,3 +13,5 @@ This code will scan the I2C BUS and return your devices’ I2C address.
 I have tested on (1,0) and (6,7) _(sda, sdc)  
 - But only have 1 BUS I2C. _(ESP32 can manage 2 BUS I2C)_   
 Check this doc: [Multiple I2C devices (same bus, different addresses)](https://randomnerdtutorials.com/esp32-i2c-communication-arduino-ide/#5)
+
+For more I2C stuff, check [issue #2](https://github.com/nicolasdb/M5Stamp-C3U/issues/2)
