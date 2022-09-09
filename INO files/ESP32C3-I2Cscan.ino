@@ -1,9 +1,15 @@
+
 /*********
-  Rui Santos
-  Complete project details at https://randomnerdtutorials.com  
+ Based on Rui Santos
+ Complete project details at https://randomnerdtutorials.com  
 *********/
 
+#include <Arduino.h>
 #include <Wire.h>
+
+//#define I2C_SDA 1
+//#define I2C_SCL 0
+
 
 #define I2C_SDA 6
 #define I2C_SCL 7
@@ -14,7 +20,7 @@ void setup() {
   Serial.println("\nI2C Scanner");
 }
  
-void loop() {
+void loop() { // start
   byte error, address;
   int nDevices;
   Serial.println("Scanning...");
@@ -45,4 +51,4 @@ void loop() {
     Serial.println("done\n");
   }
   delay(5000);          
-}
+}  // end
