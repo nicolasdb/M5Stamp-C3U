@@ -2,43 +2,14 @@
 
 Project forked to explore how to use this board.   
 
-- [x] Setup things with Arduino IDE 1.8.19, boards and lib. 
-- [x] Play with a Oled .096 display and the ~~ENV unit~~ DHT11
-- [x] Then go back to setup the board in platform.io
-
-
-
-----
-
-### Notes:
-Pay attention to the model you have.  
-- C3 need a FTDI driver  
-- C3U doesn't but need to be in program download mode.
-
-For more stuff, check the [issue #1](https://github.com/nicolasdb/M5Stamp-C3U/issues/1)
-
-#### - To use with Arduino IDE
-[https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html#installing-using-arduino-ide](https://docs.espressif.com/projects/arduino-esp32/en/latest/installing.html#installing-using-arduino-ide)
-
-#### - To use with Platform.io
-
-Clone this repo, everything is adjusted in `platformio.ini`  
-Just build and upload
-
-#### - Test program
-`main.cpp` : Internal led will change its color with each press on the button.
+### This program
+`main.cpp` : With I2C communication, each slave on the bus has its own address, a hexadecimal number that allows the ESP32 to communicate with each device.  
+This code will scan the I2C BUS and return your devices’ I2C address.  
 
 > For ARDUINO IDE: You can copy/paste the code from `main.cpp` Don't forget to install libraries. 
 
-#### - To enter into "program download" mode operation:
-
-- Long press the center button (G9) of STAMP C3U under power failure condition.
-- Connect USB to the computer while holding the button, 
-
-after that, the port is successfully identified, program burning.
-
-> Windows 10, Arduino IDE
-![image](https://user-images.githubusercontent.com/12049360/185742555-b4190a52-7720-4787-beb9-55e36e271cf4.png)
-
-> Manjaro kernel 5.15 LTS, Arduino IDE
-![image](https://user-images.githubusercontent.com/12049360/189372496-20315b99-53ec-4071-b5c7-1e33a9ff0d8e.png)
+#### Notes:
+- M5Stamp C3U can use any GPIO as I2C BUS. You need to define the pin you want to use with `Wire.begin(I2C_SDA, I2C_SCL);`   
+I have tested on (1,0) and (6,7) _(sda, sdc)  
+- But only have 1 BUS I2C. _(ESP32 can manage 2 BUS I2C)_   
+Check this doc: [Multiple I2C devices (same bus, different addresses)](https://randomnerdtutorials.com/esp32-i2c-communication-arduino-ide/#5)
