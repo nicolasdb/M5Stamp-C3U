@@ -1,63 +1,44 @@
+#include <Arduino.h>
+#include <Wire.h>
 
-#include <Adafruit_NeoPixel.h>
-
-#define BUTTON      9
-#define LED         2
-#define NUMPIXELS   1
-
-Adafruit_NeoPixel pixels(NUMPIXELS, LED, NEO_GRB + NEO_KHZ800);
-
-int lastState = HIGH;
-int currentState;  
-
-int buttonCount = 1;
-
+#define I2C_SDA 6
+#define I2C_SCL 7
+ 
 void setup() {
+  Wire.begin(I2C_SDA, I2C_SCL);
   Serial.begin(115200);
-  pixels.begin();
-  pinMode(BUTTON, INPUT_PULLUP);
+  Serial.println("\nI2C Scanner");
 }
-
-int high = 255;
-int mid = 128;
-int low = 0;
-
-void setLed() {
-  pixels.clear();
-  switch (buttonCount) {
-    case 1:
-      pixels.setPixelColor(0, pixels.Color(high, low, low));
-      break;
-    case 2:
-      pixels.setPixelColor(0, pixels.Color(high, mid, mid));
-      break;
-    case 3:
-      pixels.setPixelColor(0, pixels.Color(low, high, low));
-      break;
-    case 4:
-      pixels.setPixelColor(0, pixels.Color(mid, high, mid));
-      break;
-    case 5:
-      pixels.setPixelColor(0, pixels.Color(low, low, high));
-      break;
-    case 6:
-      pixels.setPixelColor(0, pixels.Color(mid, mid, high));
-      break;
-    default:
-      break;
-  }
-  pixels.show();
-}
-
-void loop() {
-  currentState = digitalRead(BUTTON);
-  if(lastState == LOW && currentState == HIGH) {
-    Serial.println("Button Pressed!");
-    buttonCount++;
-    if (buttonCount > 6) {
-      buttonCount = 1;
+ 
+void loop() { // start
+  byte error, address;
+  int nDevices;
+  Serial.println("Scanning...");
+  nDevices = 0;
+  for(address = 1; address < 127; address++ ) {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.println(address,HEX);
+      nDevices++;
     }
-    setLed();
+    else if (error==4) {
+      Serial.print("Unknow error at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.println(address,HEX);
+    }    
   }
-  lastState = currentState;
-}
+  if (nDevices == 0) {
+    Serial.println("No I2C devices found\n");
+  }
+  else {
+    Serial.println("done\n");
+  }
+  delay(5000);          
+}  // end
