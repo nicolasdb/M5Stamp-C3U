@@ -3,11 +3,11 @@
 Project forked to explore how to use this board.   
 
 - [x] Setup things with Arduino IDE 1.8.19, boards and lib. 
-- [x] Understand how to communicate with I2C
+- [x] Understand how to communicate with I2C,  
 Check [I2Cscan branch](https://github.com/nicolasdb/M5Stamp-C3U/tree/I2Cscan)
-- [x] Play with a Oled .096 display and the ~~ENV unit~~ DHT11
+- [x] Play with a Oled .096 display and the ~~ENV unit~~ DHT11,  
 Check [OledDHT11 branch](https://github.com/nicolasdb/M5Stamp-C3U/tree/OledDHT11)
-- [x] Then go back to setup the board in platform.io
+- [x] Then go back to setup the board in platform.io,  
 Here on Master branch.
 
 
