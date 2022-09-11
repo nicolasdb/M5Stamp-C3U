@@ -3,18 +3,20 @@
 Project forked to explore how to use this board.   
 
 ### This program
-`main.cpp` : This code will connect to the DHT11 (from keyestudio) and return the temp+humidity value on the OLED 0.96 display trought the I2C BUS. And I added a custom bitmap.   
+`main.cpp` : This code will read the state of 4 switchs and turn on/off 4 Leds.    
 
 
-![image](https://user-images.githubusercontent.com/12049360/187668503-d94c14e6-6ff3-445c-b376-b43ce862f8cd.png)
-_the picture show a MCP23017 to expand GPIO but it's not used in this code_
 
-> For ARDUINO IDE: You can copy/paste the code from `main.cpp` Don't forget to install libraries. 
+![image](https://user-images.githubusercontent.com/12049360/189532779-beec6e33-ed31-4129-97e3-5178b58865a5.png)  
+_the picture show a DHT11 and Oled display but are not used in this example_
+
+My goal was to test the code for a futur water level system based on float switchs.  
+![waterlevel](https://user-images.githubusercontent.com/12049360/189533974-6befeb64-5b1e-4f89-b9d5-dc31d974b4bf.png)
+
+> For ARDUINO IDE: You can copy/paste the code from `main.cpp` 
+> Don't forget to install libraries. 
 
 #### Notes:
-- It's a pain in the ass to work with I2C libraries, most recent lib didn't work because M5Stamp C3 is not yet implemented as an option or something. 
-- DHT11 from keyestudio and the old dht11 library downloaded from their link.
-**Doc :** https://wiki.keyestudio.com/Ks0034_keyestudio_DHT11_Temperature_and_Humidity_Sensor
-**Lib :** https://fs.keyestudio.com/KS0034
+- none in particular
 
 For more I2C stuff, check [issue #2](https://github.com/nicolasdb/M5Stamp-C3U/issues/2)
