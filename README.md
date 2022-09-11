@@ -1,15 +1,20 @@
 ## This is an example project for M5Stamp C3U on PlatformIO
 
 Project forked to explore how to use this board.   
-
-- [x] Setup things with Arduino IDE 1.8.19, boards and lib. 
+### Work in progress:
+- [x] Setup things with Arduino IDE 1.8.19, boards and lib.  
+Here on Master branch.
 - [x] Understand how to communicate with I2C,  
-Check [I2Cscan branch](https://github.com/nicolasdb/M5Stamp-C3U/tree/I2Cscan)
+Check branch [I2Cscan](https://github.com/nicolasdb/M5Stamp-C3U/tree/I2Cscan)
 - [x] Play with a Oled .096 display and the ~~ENV unit~~ DHT11,  
-Check [OledDHT11 branch](https://github.com/nicolasdb/M5Stamp-C3U/tree/OledDHT11)
+Check branch [OledDHT11](https://github.com/nicolasdb/M5Stamp-C3U/tree/OledDHT11)
+- [x] Expand GPIO with MCP23017 and I2C.  
+Check branch [mcp23017](https://github.com/nicolasdb/M5Stamp-C3U/tree/mcp23017)
 - [x] Then go back to setup the board in platform.io,  
 Here on Master branch.
-
+- [ ] connect and log data with the "data logger shield for WIFI D1 MINI"  
+- [ ] measuring of State of a battery (V) and power form solar pannel (A)  
+- [ ] return the tilt values from ADXL345 on a graph with web server.   
 
 ----
 
