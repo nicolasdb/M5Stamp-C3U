@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define I2C_SDA 6
-#define I2C_SCL 7
+#define I2C_SDA 1
+#define I2C_SCL 0
  
 void setup() {
   Wire.begin(I2C_SDA, I2C_SCL);
