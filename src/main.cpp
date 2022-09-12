@@ -25,7 +25,7 @@ AM232X AM2320;
 void setup()
 {
   Serial.begin(115200);
-  Wire.begin(6,7);
+  Wire.begin(1,0);
   Serial.println(__FILE__);
   Serial.print("LIBRARY VERSION: ");
   Serial.println(AM232X_LIB_VERSION);
