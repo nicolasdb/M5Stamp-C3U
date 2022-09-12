@@ -4,8 +4,8 @@
  
 #define I2C_Freq 100000UL             // Standard-Mode (Sm), with a bit rate up to 100 kbit/s
  
-#define SDA_1 6                       // I choose these pins for I2C.
-#define SCL_1 7
+#define SDA_1 1                       // I choose these pins for I2C.
+#define SCL_1 0
  
 Adafruit_MCP23X17 mcp; 
          
