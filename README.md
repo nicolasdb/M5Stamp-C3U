@@ -9,6 +9,6 @@ Project forked to explore how to use this board.
 
 #### Notes:
 - I'm using this library : https://github.com/RobTillaart/AM232X
-- Still need to add in setup `Wire.begin(sda,scl);` with sda = 6 et scl = 7 in my case.  
+- Still need to add in setup `Wire.begin(sda,scl);`   
 
 For more AM2320 stuff, check [issue #5](https://github.com/nicolasdb/M5Stamp-C3U/issues/5)
