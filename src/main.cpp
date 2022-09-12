@@ -7,8 +7,8 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-#define I2C_SDA 6
-#define I2C_SCL 7
+#define I2C_SDA 1
+#define I2C_SCL 0
 
 
 dht11 DHT;
