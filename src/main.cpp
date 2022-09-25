@@ -6,7 +6,7 @@ String dataMessage;
 
 
 // SPIFFS functions
-#pragma region        // shrink SPIFFS
+#pragma region        // to shrink SPIFFS lines in VS code
 
 #define FORMAT_SPIFFS_IF_FAILED true
 
