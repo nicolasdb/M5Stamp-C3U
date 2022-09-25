@@ -9,7 +9,9 @@ The sketch will give you complete understanding on how to set/read date & time o
 > For ARDUINO IDE: You can copy/paste the code from `main.cpp` Don't forget to install libraries. 
 
 #### Notes:
-- I followed part oh [this tutorial](https://lastminuteengineers.com/ds1307-rtc-arduino-tutorial/)
+- I followed part of [this tutorial](https://lastminuteengineers.com/ds1307-rtc-arduino-tutorial/)
 - I needed to include SPI.h
+
+But I failed to setup the SD card part of the logger module. Something wrong on the SPI side, don't know if it's the code or the module and I don't have another module to test. 
 
 For more Data Logger stuff, check [issue #6](https://github.com/nicolasdb/M5Stamp-C3U/issues/6)
