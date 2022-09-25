@@ -1,83 +1,142 @@
-#include "Arduino.h"
-#include <Wire.h>
-#include "RTClib.h"
-#include <SPI.h>
+#include <SPIFFS.h>
+#include <SSVTimer.h>
+#include <FS.h>
 
-#define I2C_SDA 1
-#define I2C_SCL 0
+String dataMessage;
 
-RTC_DS1307 rtc;
 
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+// SPIFFS functions
+#pragma region        // shrink SPIFFS
 
-void setup () 
-{
-  Serial.begin(115200);
-  Wire.begin(I2C_SDA,I2C_SCL);
-  delay(3000); // wait for console opening
+#define FORMAT_SPIFFS_IF_FAILED true
 
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    while (1);
-  }
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
+    Serial.printf("Listing directory: %s\r\n", dirname);
 
-  if (!rtc.isrunning()) {
-    Serial.println("RTC lost power, lets set the time!");
-	
-	// Comment out below lines once you set the date & time:
-    // 1. Following line sets the RTC to the date & time this sketch was compiled
-    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-	
-    // 2. Following line sets the RTC with an explicit date & time
-    // for example to set January 27 2017 at 12:56 you would call:
-    // rtc.adjust(DateTime(2017, 1, 27, 12, 56, 0));
-  }
+    File root = fs.open(dirname);
+    if(!root){
+        Serial.println("- failed to open directory");
+        return;
+    }
+    if(!root.isDirectory()){
+        Serial.println(" - not a directory");
+        return;
+    }
+
+    File file = root.openNextFile();
+    while(file){
+        if(file.isDirectory()){
+            Serial.print("  DIR : ");
+            Serial.println(file.name());
+            if(levels){
+                listDir(fs, file.path(), levels -1);
+            }
+        } else {
+            Serial.print("  FILE: ");
+            Serial.print(file.name());
+            Serial.print("\tSIZE: ");
+            Serial.println(file.size());
+        }
+        file = root.openNextFile();
+    }
 }
 
-void loop () 
-{
-    DateTime now = rtc.now();
-    
-    Serial.println("Current Date & Time: ");
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" (");
-    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
-    
-    Serial.println("Unix Time: ");
-    Serial.print("elapsed ");
-    Serial.print(now.unixtime());
-    Serial.print(" seconds/");
-    Serial.print(now.unixtime() / 86400L);
-    Serial.println(" days since 1/1/1970");
-    
-    // calculate a date which is 7 days & 30 seconds into the future
-    DateTime future (now + TimeSpan(7,0,0,30));
-    
-    Serial.println("Future Date & Time (Now + 7days & 30s): ");
-    Serial.print(future.year(), DEC);
-    Serial.print('/');
-    Serial.print(future.month(), DEC);
-    Serial.print('/');
-    Serial.print(future.day(), DEC);
-    Serial.print(' ');
-    Serial.print(future.hour(), DEC);
-    Serial.print(':');
-    Serial.print(future.minute(), DEC);
-    Serial.print(':');
-    Serial.print(future.second(), DEC);
-    Serial.println();
-    
-    Serial.println();
-    delay(1000);
+void readFile(fs::FS &fs, const char * path){
+    Serial.printf("Reading file: %s\r\n", path);
+
+    File file = fs.open(path);
+    if(!file || file.isDirectory()){
+        Serial.println("- failed to open file for reading");
+        return;
+    }
+
+    Serial.println("- read from file:");
+    while(file.available()){
+        Serial.write(file.read());
+    }
+    file.close();
+}
+
+void writeFile(fs::FS &fs, const char * path, const char * message){
+    Serial.printf("Writing file: %s\r\n", path);
+
+    File file = fs.open(path, FILE_WRITE);
+    if(!file){
+        Serial.println("- failed to open file for writing");
+        return;
+    }
+    if(file.print(message)){
+        Serial.println("- file written");
+    } else {
+        Serial.println("- write failed");
+    }
+    file.close();
+}
+
+void appendFile(fs::FS &fs, const char * path, const char * message){
+    Serial.printf("Appending to file: %s\r\n", path);
+
+    File file = fs.open(path, FILE_APPEND);
+    if(!file){
+        Serial.println("- failed to open file for appending");
+        return;
+    }
+    if(file.print(message)){
+        Serial.println("- message appended");
+    } else {
+        Serial.println("- append failed");
+    }
+    file.close();
+}
+#pragma endregion
+
+
+// read sensor value function
+void probe() {
+  int sensor = analogRead(3);
+  dataMessage = String(sensor) + "," + "\r\n";
+    // Note: the “\r\n” at the end ensures the next reading is written on the next line.
+  appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
+  Serial.println(sensor);
+  }
+
+// define timers
+SSVTimer timer1;
+
+// define sensor and button
+#define LDR         3
+#define BUTTON      9
+int lastState = HIGH;
+int currentState;  
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  pinMode(LDR, INPUT);
+  pinMode(BUTTON, INPUT_PULLUP);
+  // start SPIFFS
+  if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+        Serial.println("SPIFFS Mount Failed");
+        return;
+    }
+  writeFile(SPIFFS, "/log.txt", "Reading ID, Date, Hour, Temperature \r\n");
+    // Note: the “\r\n” at the end ensures the next reading is written on the next line.
+  listDir(SPIFFS, "/", 0);
+  
+  timer1.SetEnabled(true);
+  timer1.SetInterval(3*1000);
+  timer1.SetOnTimer(probe);
+
+  delay(500);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  timer1.RefreshIt();
+  currentState = digitalRead(BUTTON);
+      if(lastState == LOW && currentState == HIGH) {
+        Serial.println("Button Pressed!");
+        readFile(SPIFFS, "/log.txt");
+      }
+  lastState = currentState;
 }
