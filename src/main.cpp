@@ -2,8 +2,32 @@
 #include <SSVTimer.h>
 #include <FS.h>
 
-String dataMessage;
+#include <Wire.h>
+#include <Adafruit_GFX.h> 
+#include <Adafruit_SSD1306.h>
+#include <AM232X.h>
 
+#define SCREEN_WIDTH 128            // OLED display width, in pixels
+#define SCREEN_HEIGHT 64            // OLED display height, in pixels
+#define I2C_SDA 1                   // I2C
+#define I2C_SCL 0                   // I2C
+
+
+// define variables
+#define sensorPin   3
+int sensor;
+int temp;
+int hum;
+String dataMessage;                 // to collect data before saving to log
+#define BUTTON      9
+int lastState = HIGH;
+int currentState;  
+
+// define timers
+SSVTimer timer1;
+
+// define sensor
+AM232X AM2320;
 
 // SPIFFS functions
 #pragma region        // to shrink SPIFFS lines in VS code
@@ -93,41 +117,58 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 
 // read sensor value function
 void probe() {
-  int sensor = analogRead(3);
-  dataMessage = String(sensor) + "," + "\r\n";
+  sensor = analogRead(sensorPin);
+  temp = AM2320.getTemperature();
+  hum = AM2320.getHumidity();
+  dataMessage = String(sensor) + "," + String(temp,1) + "," + String(hum,1) + "\r\n";
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
-  Serial.println(sensor);
+  Serial.print(sensor);
+  Serial.print(" , ");
+  Serial.print(temp,1);
+  Serial.print(" , ");
+  Serial.println(hum,1);
   }
 
-// define timers
-SSVTimer timer1;
-
-// define sensor and button
-#define LDR         3
-#define BUTTON      9
-int lastState = HIGH;
-int currentState;  
-
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
-  pinMode(LDR, INPUT);
+    Wire.begin(I2C_SDA,I2C_SCL);
+  pinMode(sensorPin, INPUT);
   pinMode(BUTTON, INPUT_PULLUP);
+
   // start SPIFFS
   if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  writeFile(SPIFFS, "/log.txt", "Reading ID, Date, Hour, Temperature \r\n");
+  writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
   timer1.SetEnabled(true);
-  timer1.SetInterval(3*1000);
+  timer1.SetInterval((5)*1000);
   timer1.SetOnTimer(probe);
 
-  delay(500);
+   if (! AM2320.begin() )
+  {
+    Serial.println("Sensor not found");
+    while (1);
+  }
+  AM2320.wakeUp();
+  delay(2000);
+
+  int status = AM2320.read();
+  switch (status)
+  {
+    case AM232X_OK:
+      Serial.println("OK");
+      break;
+    default:
+      Serial.println(status);
+      break;
+  }
+
+  delay(100);
 }
 
 void loop() {
