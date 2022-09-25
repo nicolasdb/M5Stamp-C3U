@@ -12,6 +12,7 @@
 #define I2C_SDA 1                   // I2C
 #define I2C_SCL 0                   // I2C
 
+#define I2C_BUFFER_LENGTH 258
 
 // define variables
 #define sensorPin   3
@@ -120,19 +121,20 @@ void probe() {
   sensor = analogRead(sensorPin);
   temp = AM2320.getTemperature();
   hum = AM2320.getHumidity();
-  dataMessage = String(sensor) + "," + String(temp,1) + "," + String(hum,1) + "\r\n";
+  dataMessage = String(sensor + "," + String(temp) + "," + String(hum) + "\r\n");
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
   Serial.print(sensor);
+  Serial.print(" , Temp: ");
+  Serial.print(temp); Serial.print("°C");
   Serial.print(" , ");
-  Serial.print(temp,1);
-  Serial.print(" , ");
-  Serial.println(hum,1);
+  Serial.print(hum,1); Serial.println("%");
   }
 
 void setup() {
   Serial.begin(115200);
-    Wire.begin(I2C_SDA,I2C_SCL);
+  Wire.begin(I2C_SDA,I2C_SCL);
+  AM2320.begin();
   pinMode(sensorPin, INPUT);
   pinMode(BUTTON, INPUT_PULLUP);
 
@@ -174,10 +176,12 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   timer1.RefreshIt();
+  delay(10);
   currentState = digitalRead(BUTTON);
       if(lastState == LOW && currentState == HIGH) {
         Serial.println("Button Pressed!");
         readFile(SPIFFS, "/log.txt");
       }
   lastState = currentState;
+  delay(100);
 }
