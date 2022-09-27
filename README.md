@@ -6,11 +6,11 @@ Project forked to explore how to use this board.
 `main.cpp` : :warning: Work in progress  
 The sketch will 
 1. Timer > analogREAD > append to log.txt on SPIFFS
-2. on PushButton > print last log on serial monitor
+2. on PushButton > print last log on serial monitor, print last log on Oled
 
 next: 
-- print last log on Oled
 - create an access point wifi and publish the log on html
+- add a time value to each log
 - show the logs on a graph on html
 
 > For ARDUINO IDE: You can copy/paste the code from `main.cpp` Don't forget to install libraries. 
