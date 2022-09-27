@@ -12,13 +12,13 @@
 #define I2C_SDA 1                   // I2C
 #define I2C_SCL 0                   // I2C
 
-#define I2C_BUFFER_LENGTH 258
+// #define I2C_BUFFER_LENGTH 258
 
 // define variables
 #define sensorPin   3
 int sensor;
-int temp;
-int hum;
+float temp;
+float hum;
 String dataMessage;                 // to collect data before saving to log
 #define BUTTON      9
 int lastState = HIGH;
@@ -118,17 +118,21 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 
 // read sensor value function
 void probe() {
+//   AM2320.wakeUp();
+//   delay(2000);
   sensor = analogRead(sensorPin);
   temp = AM2320.getTemperature();
   hum = AM2320.getHumidity();
-  dataMessage = String(sensor + "," + String(temp) + "," + String(hum) + "\r\n");
-    // Note: the “\r\n” at the end ensures the next reading is written on the next line.
-  appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
   Serial.print(sensor);
   Serial.print(" , Temp: ");
   Serial.print(temp); Serial.print("°C");
   Serial.print(" , ");
   Serial.print(hum,1); Serial.println("%");
+
+  //dataMessage = String(sensor + "," + String(temp) + "," + String(hum) + "\r\n");
+    dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "\r\n";
+    // Note: the “\r\n” at the end ensures the next reading is written on the next line.
+  appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
   }
 
 void setup() {
@@ -139,11 +143,12 @@ void setup() {
   pinMode(BUTTON, INPUT_PULLUP);
 
   // start SPIFFS
-  if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+  if(!SPIFFS.begin()){
+ // if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");
+  //writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
@@ -163,7 +168,7 @@ void setup() {
   switch (status)
   {
     case AM232X_OK:
-      Serial.println("OK");
+      Serial.println("AM2320 sensor OK");
       break;
     default:
       Serial.println(status);
@@ -176,7 +181,6 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   timer1.RefreshIt();
-  delay(10);
   currentState = digitalRead(BUTTON);
       if(lastState == LOW && currentState == HIGH) {
         Serial.println("Button Pressed!");
