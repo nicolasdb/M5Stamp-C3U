@@ -210,7 +210,7 @@ void probe() {
         switch (status)
         {
             case AM232X_OK:
-            Serial.println(">>>>> sensor awake ᕙ(`▿´)ᕗ");
+            Serial.println(">>>>> I AM2320 awake ᕙ(`▿´)ᕗ");
             break;
             default:
             Serial.println(status);
