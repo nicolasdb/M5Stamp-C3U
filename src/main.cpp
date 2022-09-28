@@ -94,6 +94,21 @@ void setup(){
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
 
+  // Route to show log.html
+  server.on("/html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/log.html", "text/html");
+  });
+
+  // Route to show text.txt
+  server.on("/quote", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/quote.html", "text/html");
+  });
+
+   // Route to show text.txt
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/log.txt", "text/plain");
+  });
+
   // Start server
   server.begin();
 }

@@ -1,0 +1,5 @@
+
+<p>Hello from file system</p>
+<p>Readings from txt for:</p> 
+<p>LDR, Temperature, Humidité </p>
+1112,21.30,53.40<br>1128,21.50,53.10<br>1110,21.40,52.90<br>
