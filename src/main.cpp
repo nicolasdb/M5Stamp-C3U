@@ -243,12 +243,12 @@ void setup() {
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  //writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");     // to create the file 
+  writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");       // to create the file 
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
   timer1.SetEnabled(true);
-  timer1.SetInterval((5)*1000);
+  timer1.SetInterval((60)*1000);
   timer1.SetOnTimer(probe);
 
     if (! AM2320.begin() )  {
