@@ -225,9 +225,9 @@ void probe() {
   Serial.print(" , ");
   Serial.print(hum,1); Serial.println("%");
 
-  dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "\r\n";
+  dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "<br>";
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
-  appendFile(SPIFFS, "/log.txt", dataMessage.c_str());
+  appendFile(SPIFFS, "/log.html", dataMessage.c_str());
   }
 
 void setup() {
@@ -243,7 +243,7 @@ void setup() {
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  writeFile(SPIFFS, "/log.txt", "Reading LDR, Temperature \r\n");       // to create the file 
+  writeFile(SPIFFS, "/log.html", "Reading LDR, Temperature, Humidité \r\n");       // to create the file 
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
@@ -334,7 +334,7 @@ void loop() {
             display.print("%"); 
     
             display.display(); 
-            readFile(SPIFFS, "/log.txt");
+            readFile(SPIFFS, "/log.html");
         }
     lastState = currentState;
 
