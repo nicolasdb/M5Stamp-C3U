@@ -1,16 +1,21 @@
 #include <SPIFFS.h>
-#include <SSVTimer.h>
 #include <FS.h>
 
+#include "WiFi.h"
+#include "ESPAsyncWebServer.h" 
+
 #include <Wire.h>
+#include <SSVTimer.h>
 #include <Adafruit_GFX.h> 
 #include <Adafruit_SSD1306.h>
 #include <AM232X.h>
-
+#include <Adafruit_MCP23X17.h>  
 
 
 // define variables
-#define sensorPin   3
+#define I2C_SDA 1                   // I2C
+#define I2C_SCL 0                   // I2C
+#define sensorPin   3               // LDR
 int sensor;
 float temp;
 float hum;
@@ -18,12 +23,43 @@ String dataMessage;                 // to collect data before saving to log
 #define BUTTON      9
 int lastState = HIGH;
 int currentState;  
+int wait = 60;
+
+// Set LED GPIO
+int ledPin = 2;                     // MCP23017 pin LED
+String ledState;
+
+// Replace with your network credentials
+const char* ssid = "EAsy-Access-Point";
+const char* password = "1234";
+
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
 
 // define timers
 SSVTimer timer1;
 
 // define sensor
 AM232X AM2320;
+
+// define MCP
+Adafruit_MCP23X17 mcp; 
+
+// Replaces placeholder with LED state value
+String processor(const String& var){
+  Serial.println(var);
+  if(var == "STATE"){
+    if(mcp.digitalRead(ledPin)){
+      ledState = "ON";
+    }
+    else{
+      ledState = "OFF";
+    }
+    Serial.print(ledState);
+    return ledState;
+  }
+  return String();
+}
 
 // SPIFFS functions
 #pragma region          // to shrink SPIFFS lines in VS code
@@ -116,8 +152,6 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 
 #define SCREEN_WIDTH 128            // OLED display width, in pixels
 #define SCREEN_HEIGHT 64            // OLED display height, in pixels
-#define I2C_SDA 1                   // I2C
-#define I2C_SCL 0                   // I2C
 
 #define x1 5
 #define y1 40
@@ -225,17 +259,20 @@ void probe() {
   Serial.print(" , ");
   Serial.print(hum,1); Serial.println("%");
 
-  dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "<br>";
+  dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "," + "<br>" + "\r\n";
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   appendFile(SPIFFS, "/log.html", dataMessage.c_str());
   }
 
 void setup() {
-  Serial.begin(115200);
-  Wire.begin(I2C_SDA,I2C_SCL);
-  AM2320.begin();
-  pinMode(sensorPin, INPUT);
-  pinMode(BUTTON, INPUT_PULLUP);
+   Serial.begin(115200);
+   Wire.begin(I2C_SDA,I2C_SCL);
+   AM2320.begin();
+   mcp.begin_I2C();
+   pinMode(sensorPin, INPUT);
+   pinMode(BUTTON, INPUT_PULLUP);
+   mcp.pinMode(ledPin, OUTPUT);
+   mcp.digitalWrite(ledPin, LOW);
 
   // start SPIFFS
   if(!SPIFFS.begin()){
@@ -243,41 +280,93 @@ void setup() {
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  writeFile(SPIFFS, "/log.html", "Reading LDR, Temperature, Humidité \r\n");       // to create the file 
+  writeFile(SPIFFS, "/log.html", "LDR, Temperature, Humidity, <br> \r\n");       // to create the file 
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
   timer1.SetEnabled(true);
-  timer1.SetInterval((60)*1000);
+  timer1.SetInterval((wait)*1000);
   timer1.SetOnTimer(probe);
 
-    if (! AM2320.begin() )  {
+  if (! AM2320.begin() )  {
         Serial.println("Sensor not found");
         while (1);
-    }
+  }
 
+  delay(3000);
+
+  // Connect to Wi-Fi network with SSID and password
+  Serial.println("Setting AP (Access Point)…");
+  // Remove the password parameter, if you want the AP (Access Point) to be open
+  //WiFi.softAP(ssid, password);
+  WiFi.softAP(ssid);
   
+  // Print AccessPoint IP address and start web server
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("Page on this IP address: ");
+  Serial.println(IP);
 
-if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
-}
-    delay(2000);
-    display.clearDisplay();
-
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(10, 45);
-    // Display static text
-    display.println("the awesome logger");
-    Serial.println("Oled monitor online");
-
-    display.drawBitmap(0, -5, epd_bitmap_splashNico, 128, 64, 1);
-    // drawBitmap() method that accepts the following arguments (x, y, image array, image width, image height, rotation)
+#pragma region      /// config web server
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
   
-    display.display(); 
+  // Route to load style.css file
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/style.css", "text/css");
+  });
 
-    delay(100);
+  // Route to set GPIO to HIGH
+  server.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
+    mcp.digitalWrite(ledPin, HIGH);    
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  
+  // Route to set GPIO to LOW
+  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+    mcp.digitalWrite(ledPin, LOW);    
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  // Route to show log.html
+  server.on("/html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/log.html", "text/html");
+  });
+
+  // Route to show text.txt
+  server.on("/quote", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/quote.html", "text/html");
+  });
+
+   // Route to show text.txt
+  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/log.txt", "text/plain");
+  });
+
+#pragma endregion
+
+  server.begin();
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+      Serial.println(F("SSD1306 allocation failed"));
+      for(;;);
+  }
+   // delay(2000);
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 45);
+  // Display static text
+  display.println("the awesome logger");
+  Serial.println("Oled monitor online");
+
+  display.drawBitmap(0, -5, epd_bitmap_splashNico, 128, 64, 1);
+  // drawBitmap() method that accepts the following arguments (x, y, image array, image width, image height, rotation)
+
+  display.display(); 
+  delay(100);
 
     AM2320.wakeUp();
 
