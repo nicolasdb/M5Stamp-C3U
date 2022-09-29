@@ -7,9 +7,9 @@ Project forked to explore how to use this board.
 The sketch will 
 1. Timer > analogREAD > append to log.txt on SPIFFS
 2. on PushButton > print last log on serial monitor, print last log on Oled
+3. create an access point wifi and publish the log on html
 
 next: 
-- create an access point wifi and publish the log on html
 - add a time value to each log
 - show the logs on a graph on html
 
