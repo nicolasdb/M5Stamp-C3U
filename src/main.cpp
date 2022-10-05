@@ -10,6 +10,7 @@
 #include <Adafruit_SSD1306.h>
 #include <AM232X.h>
 #include <Adafruit_MCP23X17.h>  
+#include <RTClib.h>
 
 
 // define variables
@@ -19,11 +20,12 @@
 int sensor;
 float temp;
 float hum;
-String dataMessage;                 // to collect data before saving to log
+String dataMessage;                 // to collect data before print to log
+String timeStamp;                   // to collect time now before print to log
 #define BUTTON      9
 int lastState = HIGH;
 int currentState;  
-int wait = 60;
+#define wait        1               // probing interval in minute
 
 // Set LED GPIO
 int ledPin = 2;                     // MCP23017 pin LED
@@ -33,17 +35,12 @@ String ledState;
 const char* ssid = "EAsy-Access-Point";
 const char* password = "1234";
 
-// Create AsyncWebServer object on port 80
-AsyncWebServer server(80);
-
-// define timers
-SSVTimer timer1;
-
-// define sensor
-AM232X AM2320;
-
-// define MCP
-Adafruit_MCP23X17 mcp; 
+// Create instances for
+  AsyncWebServer server(80);                                // AsyncWebServer object on port 80
+  SSVTimer timer1;                                          // timer
+  RTC_DS1307 rtc;                                           // clock RTC
+  AM232X AM2320;                                            // sensor H+T
+  Adafruit_MCP23X17 mcp;                                    // MCP
 
 // Replaces placeholder with LED state value
 String processor(const String& var){
@@ -240,26 +237,28 @@ const unsigned char* epd_bitmap_allArray[1] = {
 
 // read sensor value function
 void probe() {
-    int status = AM2320.read();
-        switch (status)
-        {
-            case AM232X_OK:
-            Serial.println(">>>>> I AM2320 awake ᕙ(`▿´)ᕗ");
-            break;
-            default:
-            Serial.println(status);
-            break;
-        }
+  DateTime now = rtc.now();
+  timeStamp =  String(now.year(), DEC) + "/" + String(now.month(), DEC) + "/" + String(now.day(), DEC) + " " + String(now.hour(), DEC)+ ":" + String(now.minute(), DEC) + ":" + String(now.second(), DEC);
+
+  int status = AM2320.read();
+      switch (status)
+      {
+          case AM232X_OK:
+          Serial.println(">>>>> I AM2320 awake ᕙ(`▿´)ᕗ");
+          break;
+          default:
+          Serial.println(status);
+          break;
+      }
   sensor = analogRead(sensorPin);
   temp = AM2320.getTemperature();
   hum = AM2320.getHumidity();
-  Serial.print(sensor);
-  Serial.print(" , Temp: ");
-  Serial.print(temp); Serial.print("°C");
-  Serial.print(" , ");
-  Serial.print(hum,1); Serial.println("%");
 
-  dataMessage = String(sensor) + "," + String(temp) + "," + String(hum) + "," + "<br>" + "\r\n";
+  Serial.print("Time: "); Serial.println(timeStamp);
+  Serial.print("Light: "); Serial.print(sensor);
+  Serial.print(" , Temperature: "); Serial.print(temp); Serial.print("°C , Humidity:"); Serial.print(hum,1); Serial.println("%");
+
+  dataMessage = String(timeStamp) + "," + String(sensor) + "," + String(temp) + "," + String(hum) + "," + "<br>" + "\r\n";
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   appendFile(SPIFFS, "/log.html", dataMessage.c_str());
   }
@@ -269,10 +268,19 @@ void setup() {
    Wire.begin(I2C_SDA,I2C_SCL);
    AM2320.begin();
    mcp.begin_I2C();
+   
    pinMode(sensorPin, INPUT);
    pinMode(BUTTON, INPUT_PULLUP);
    mcp.pinMode(ledPin, OUTPUT);
    mcp.digitalWrite(ledPin, LOW);
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+  if (!rtc.isrunning()) {
+    Serial.println("RTC lost power, lets set the time!");
+  }
 
   // start SPIFFS
   if(!SPIFFS.begin()){
@@ -280,12 +288,12 @@ void setup() {
         Serial.println("SPIFFS Mount Failed");
         return;
     }
-  writeFile(SPIFFS, "/log.html", "LDR, Temperature, Humidity, <br> \r\n");       // to create the file 
+  writeFile(SPIFFS, "/log.html", "timeStamp, LDR, Temperature, Humidity, <br> \r\n");       // to create the file 
     // Note: the “\r\n” at the end ensures the next reading is written on the next line.
   listDir(SPIFFS, "/", 0);
   
   timer1.SetEnabled(true);
-  timer1.SetInterval((wait)*1000);
+  timer1.SetInterval((wait)*60*1000);
   timer1.SetOnTimer(probe);
 
   if (! AM2320.begin() )  {
