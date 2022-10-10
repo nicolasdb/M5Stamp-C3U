@@ -17,6 +17,7 @@
 #define I2C_SDA 1                   // I2C
 #define I2C_SCL 0                   // I2C
 #define sensorPin   3               // LDR
+#define buzzPin 6
 int sensor;
 float temp;
 float hum;
@@ -38,7 +39,7 @@ const char* password = "1234";
 // Create instances for
   AsyncWebServer server(80);                                // AsyncWebServer object on port 80
   SSVTimer timer1;                                          // timer
-  RTC_DS1307 rtc;                                           // clock RTC
+  RTC_PCF8523 rtc;                                          // clock RTC
   AM232X AM2320;                                            // sensor H+T
   Adafruit_MCP23X17 mcp;                                    // MCP
 
@@ -59,7 +60,7 @@ String processor(const String& var){
 }
 
 // SPIFFS functions
-#pragma region          // to shrink SPIFFS lines in VS code
+#pragma region          ///////////////////////////////////////////// to shrink SPIFFS lines in VS code
 
 #define FORMAT_SPIFFS_IF_FAILED true
 
@@ -145,7 +146,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message){
 
 
 // define OLED
-#pragma region          // to shrink Oled lines in VS code
+#pragma region          ///////////////////////////////////////////// to shrink Oled lines in VS code
 
 #define SCREEN_WIDTH 128            // OLED display width, in pixels
 #define SCREEN_HEIGHT 64            // OLED display height, in pixels
@@ -271,16 +272,30 @@ void setup() {
    
    pinMode(sensorPin, INPUT);
    pinMode(BUTTON, INPUT_PULLUP);
+   pinMode(buzzPin, OUTPUT);
    mcp.pinMode(ledPin, OUTPUT);
    mcp.digitalWrite(ledPin, LOW);
 
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
-    while (1);
+    Serial.flush();
+    while (1) delay(10);
   }
-  if (!rtc.isrunning()) {
-    Serial.println("RTC lost power, lets set the time!");
+if (! rtc.initialized() || rtc.lostPower()) {
+    Serial.println("RTC is NOT initialized, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    //
+    // Note: allow 2 seconds after inserting battery or applying external power
+    // without battery before calling adjust(). This gives the PCF8523's
+    // crystal oscillator time to stabilize. If you call adjust() very quickly
+    // after the RTC is powered, lostPower() may still return true.
   }
+  rtc.start();
 
   // start SPIFFS
   if(!SPIFFS.begin()){
@@ -314,7 +329,7 @@ void setup() {
   Serial.print("Page on this IP address: ");
   Serial.println(IP);
 
-#pragma region      /// config web server
+#pragma region          ///////////////////////////////////////////// config web server
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/index.html", String(), false, processor);
@@ -400,10 +415,17 @@ void loop() {
     currentState = digitalRead(BUTTON);
         if(lastState == LOW && currentState == HIGH) {
             Serial.println("Button Pressed!");
+            tone(buzzPin, 125, 100);
+            tone(buzzPin, 250, 125);
+            tone(buzzPin, 100, 100);
+            tone(buzzPin, 250, 125);
+            tone(buzzPin, 750, 100);
+            tone(buzzPin, 250, 250);
+            tone(buzzPin, 100, 100);
             // clear display
             display.clearDisplay();
             delay(100);
-        
+            noTone(buzzPin);
             // show logo
             display.drawBitmap(0, -5, epd_bitmap_splashNico, 128, 64, 1);
             // display temperature
