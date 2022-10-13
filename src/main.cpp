@@ -73,16 +73,4 @@ void setup() {
 }
 
 void loop() {
-  // // Set the target position:
-  // stepper.moveTo(100*200);
-  // // Run to target position with set speed and acceleration/deceleration:
-  // stepper.runToPosition();
-
-  // delay(1000);
-
-  // // Move back to zero:
-  // stepper.moveTo(0);
-  // stepper.runToPosition();
-
-  // delay(1000);
 }
