@@ -1,85 +1,88 @@
-#include <Arduino.h>
-#include <Wire.h>                     // controle I2C
-#include <Adafruit_MCP23X17.h>        // controle MCP
+/*Example sketch to control a stepper motor with A4988 stepper motor driver, AccelStepper library and Arduino: acceleration and deceleration. More info: https://www.makerguides.com */
+
+// Include the AccelStepper library:
 #include <AccelStepper.h>
-#include <MCP3017AccelStepper.h>
- 
-#define I2C_Freq 100000UL             // Standard-Mode (Sm), with a bit rate up to 100 kbit/s
- 
-#define SDA_1 1                       // I choose these pins for I2C.
-#define SCL_1 0
- 
-Adafruit_MCP23X17 mcp1;        
 
-int LED_PIN[] = {0,1,2,3};                // MCP23017 pin LED
-int SWPins[] = {4,5,6,7};              // MCP23017 pin "Switchboard"
+// Define stepper motor connections and motor interface type. Motor interface type must be set to 1 when using a driver:
+#define dirPin      4
+#define stepPin     5
+#define downPin       0
+#define upPin         1
 
-bool state;
+#define motorType   1
+#define stepX       1
+#define speed       2000
 
-#define STEPPER_COUNT 1
-MCP3017AccelStepper steppers[STEPPER_COUNT] = {
-    // interface, step, dir, en
-    MCP3017AccelStepper(AccelStepper::DRIVER, 15, 14, 8),
-    // MCP3017AccelStepper(AccelStepper::DRIVER, 4, 5, 6),
-    // MCP3017AccelStepper(AccelStepper::DRIVER, 12, 11, 10),
-    // MCP3017AccelStepper(AccelStepper::DRIVER, 3, 1, 2),
-};
- 
+// Create a new instance of the AccelStepper class:
+AccelStepper stepper = AccelStepper(motorType, stepPin, dirPin);
+
+int upState;
+int downState;
+// Create a handle for buttonRead, will help to suspend the control when not playing.
+TaskHandle_t TaskHandle_buttonRead;
+
+
+
+void buttonRead(void* pvParameters) {
+  while(true) {
+    upState = digitalRead(upPin);
+    if(upState == LOW) {
+      Serial.println("Going Up!");
+        // Set the speed in steps per second:
+  stepper.setSpeed(speed);
+  // Step the motor with a constant speed as set by setSpeed():
+  stepper.runSpeed();
+
+    } 
+
+
+    downState = digitalRead(downPin);
+    if(downState == LOW) {
+      Serial.println("Going Down!");
+        // Set the speed in steps per second:
+  stepper.setSpeed(-speed);
+  // Step the motor with a constant speed as set by setSpeed():
+  stepper.runSpeed();
+      }
+
+  vTaskDelay(1 / portTICK_RATE_MS);
+  }
+}
+
+
 void setup() {
-  Wire.begin(SDA_1 , SCL_1 , I2C_Freq);
-  mcp.begin_I2C();
   Serial.begin(115200);
-
-  for (int i = 0; i < STEPPER_COUNT; i++) {
-    steppers[i].setMcp(mcp1);
-    steppers[i].enableOutputs();
-    steppers[i].setMaxSpeed(150.0);
-    steppers[i].setAcceleration(100.0);
-    steppers[i].moveTo(200);
-  }
-
-
-  for (int i = 0; i < 4 ; i++){     // set pin 0>3 as Output for LED
-    mcp1.pinMode(LED_PIN[i], OUTPUT);
-    mcp1.digitalWrite(i, LOW);
-    delay(50);
-  }
-  for (int i = 0; i < 4 ; i++){     // set pin 4>7 as Input for switchboard
-    mcp1.pinMode(SWPins[i], INPUT_PULLUP);
-    delay(50);
-  }
+  pinMode(downPin, INPUT_PULLUP);
+  pinMode(upPin, INPUT_PULLUP);
   
-  // Unlike pinMode(INPUT), there is no pull-down resistor necessary with INPUT_PULLUP. An internal
-  // 20K-ohm resistor is pulled to 5V. This configuration causes the input to read HIGH 
-  // when the switch is open, and LOW when it is closed.
+  // xTaskCreate(
+  //                   taskOne,          /* Task function. */
+  //                   "TaskOne",        /* String with name of task. */
+  //                   10000,            /* Stack size in bytes. */
+  //                   nullptr,          /* Parameter passed as input of the task */
+  //                   1,                /* Priority of the task. */
+  //                   nullptr);         /* Task handle. */
+  
+  xTaskCreate(buttonRead, "buttonRead", 2048 * 1, nullptr, 1, &TaskHandle_buttonRead);
+  
+  
+  // Set the maximum speed and acceleration:
+  stepper.setMaxSpeed(1.5*speed);
+
 
 }
-                 
+
 void loop() {
+  // // Set the target position:
+  // stepper.moveTo(100*200);
+  // // Run to target position with set speed and acceleration/deceleration:
+  // stepper.runToPosition();
 
-  for (byte i = 0; i < 4; i = i + 1) {
-    state = mcp1.digitalRead(SWPins[i]);
-     if (state == 0)
-      {
-        mcp1.digitalWrite(LED_PIN[i],HIGH);
-      }   
-      else {
-        mcp1.digitalWrite(LED_PIN[i],LOW);
-      }      
-    Serial.print(state);
-  }
+  // delay(1000);
 
-  if (steppers[0].distanceToGo() == 0) {
-    steppers[0].moveTo(-steppers[0].currentPosition());
-  }
+  // // Move back to zero:
+  // stepper.moveTo(0);
+  // stepper.runToPosition();
 
-  for (int i = 0; i < STEPPER_COUNT; i++) {
-    steppers[i].run();
-  }
-
-Serial.println();                      // just to insert a new line after every loop
-
-delay(1000);                           // wait for a second
-
-
+  // delay(1000);
 }
