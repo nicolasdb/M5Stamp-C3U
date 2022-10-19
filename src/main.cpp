@@ -1,46 +1,36 @@
 #include <Arduino.h>
-
-const int knockPin = 4;
-const int ledPin = 10;
-
-int knockVal = HIGH;
-boolean knockAlarm = false;
-unsigned long prevKnockTime;
+#include <ButtonEvents.h> // we have to include the library in order to use it
 
 
-int knockAlarmTime = 100;
+#define buzzer      6
+#define buttonPin   9
+
+ButtonEvents myButton; // create an instance of the ButtonEvents class to attach to our button
 
 
-void setup ()
-{
-  Serial.begin(115200);  
-  pinMode (ledPin, OUTPUT) ;
-  pinMode (knockPin, INPUT) ;
+void setup() {
+  // put your setup code here, to run once:
+  pinMode(buttonPin,INPUT_PULLUP);
+  myButton.attach(buttonPin);
+  pinMode(buzzer,OUTPUT);
 }
-void loop ()
-{
-  knockVal = digitalRead (knockPin) ;
-  
-  if (knockVal == LOW)
-  {
-  
-    prevKnockTime = millis();
-    
-    if (!knockAlarm)
-    {
-      Serial.println("KNOCK, KNOCK");
-      digitalWrite(ledPin,HIGH);
-      knockAlarm = true;
-      delay(1000);
-    }
-  }
-  else
-  {
-    if( (millis()-prevKnockTime) > knockAlarmTime &&  knockAlarm)
-    {
-      digitalWrite(ledPin,LOW);
-      Serial.println("No Knocks");
-      knockAlarm = false;
-    }
+
+
+void loop() {
+  myButton.update();
+
+  if(myButton.doubleTapped() == true){
+    delay(400);
+    int count = 3;
+    while(count >0){
+      for( int i = 180; i>0; i--){
+        digitalWrite(buzzer,HIGH);
+        delayMicroseconds(i);
+        digitalWrite(buzzer,LOW);
+        delayMicroseconds(i);
+      } 
+    delay(125);
+    count = count -1;
+    }       
   }
 }
