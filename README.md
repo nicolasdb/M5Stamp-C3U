@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements an NFC-based time tracking device using the M5Stamp C3U microcontroller and PN532 RFID module. The device tracks work sessions by detecting NFC tags and sends event data with health metrics to n8n via webhooks.
+This project implements an NFC-based time tracking device using the M5Stamp C3U microcontroller and PN532 RFID module. The device tracks work sessions by detecting NFC tags and sends event data to n8n via webhooks.
 
 ## Features
 

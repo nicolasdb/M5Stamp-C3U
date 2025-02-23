@@ -1,0 +1,370 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <ArduinoJson.h>
+#include <FastLED.h>
+#include "Adafruit_PN532.h"
+#include "FS.h"
+#include "SPIFFS.h"
+#include "credentials.h"
+
+// Pin Definitions
+#define LED_PIN 2
+#define NUM_LEDS 1
+#define SDA_PIN 4
+#define SCL_PIN 3
+
+// LED Colors
+CRGB leds[NUM_LEDS];
+
+// RFID Module
+Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
+
+// Constants
+#define MAX_EVENTS 10
+#define DEBOUNCE_DELAY 3000  // 3 seconds between reads
+
+// State Machine Definition
+enum SystemState {
+    INIT,
+    WIFI_CONNECT,
+    IDLE,
+    TAG_SCANNED,
+    SYNC_PENDING,
+    ERROR
+};
+
+// Basic structures
+struct {
+    SystemState currentState;
+    unsigned long lastStateChange;
+    int wifiRetryCount;
+} state;
+
+struct {
+    unsigned long lastReadTime;
+    char lastTagId[16];
+    bool isTagPresent;
+} rfidReader;
+
+struct Event {
+    char id[32];
+    char tag[16];
+    char event[4];
+    unsigned long timestamp;
+    char prev_id[32];
+};
+
+Event eventQueue[MAX_EVENTS];
+int eventCount = 0;
+
+// Function declarations
+void transitionTo(SystemState newState);
+void handleError(const char* errorMsg);
+void updateLED();
+bool initializeComponents();
+void handleWiFiConnection();
+void checkRFID();
+void logEvent(const char* tag, const char* eventType);
+void syncEvents();
+bool sendToWebhook(const Event& evt);
+void removeEvent(int index);
+void loadEventsFromSPIFFS();
+void saveEventsToSPIFFS();
+
+// State machine functions
+void transitionTo(SystemState newState) {
+    Serial.printf("State: %d -> %d\n", state.currentState, newState);
+    state.currentState = newState;
+    state.lastStateChange = millis();
+    updateLED();
+}
+
+void handleError(const char* errorMsg) {
+    Serial.printf("Error: %s\n", errorMsg);
+    transitionTo(ERROR);
+}
+
+void updateLED() {
+    switch (state.currentState) {
+        case INIT:
+            leds[0] = CRGB::Blue;
+            break;
+        case WIFI_CONNECT:
+            leds[0] = CRGB::Yellow;
+            break;
+        case IDLE:
+            leds[0] = CRGB::Green;
+            break;
+        case TAG_SCANNED:
+            leds[0] = CRGB::White;
+            break;
+        case SYNC_PENDING:
+            leds[0] = CRGB::Purple;
+            break;
+        case ERROR:
+            leds[0] = CRGB::Red;
+            break;
+    }
+    FastLED.show();
+}
+
+bool initializeComponents() {
+    // Initialize I2C
+    Wire.begin(SDA_PIN, SCL_PIN);
+    Wire.setClock(100000);
+    delay(100);
+
+    // Initialize LED
+    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.show();
+    
+    // Initialize NFC
+    if (!nfc.begin()) {
+        handleError("NFC init failed");
+        return false;
+    }
+    nfc.SAMConfig();
+    
+    // Initialize SPIFFS
+    if (!SPIFFS.begin(true)) {
+        handleError("SPIFFS init failed");
+        return false;
+    }
+    
+    return true;
+}
+
+void handleWiFiConnection() {
+    static int currentNetwork = 0;
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        if (currentNetwork < WIFI_COUNT) {
+            Serial.printf("Trying SSID: %s\n", WIFI_SSIDS[currentNetwork][0]);
+            WiFi.begin(WIFI_SSIDS[currentNetwork][0], WIFI_SSIDS[currentNetwork][1]);
+            currentNetwork++;
+            delay(500);
+        } else {
+            currentNetwork = 0;
+            handleError("WiFi connection failed");
+        }
+    } else {
+        transitionTo(IDLE);
+    }
+}
+
+void checkRFID() {
+    if (millis() - rfidReader.lastReadTime < DEBOUNCE_DELAY) {
+        return;
+    }
+
+    uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+    uint8_t uidLength;
+    
+    if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength)) {
+        char tagID[16];
+        snprintf(tagID, sizeof(tagID), "%02X%02X%02X%02X", uid[0], uid[1], uid[2], uid[3]);
+        
+        // Check if it's a new tag or state changed
+        if (!rfidReader.isTagPresent || strcmp(rfidReader.lastTagId, tagID) != 0) {
+            strncpy(rfidReader.lastTagId, tagID, sizeof(rfidReader.lastTagId));
+            rfidReader.isTagPresent = true;
+            rfidReader.lastReadTime = millis();
+            
+            transitionTo(TAG_SCANNED);
+            logEvent(tagID, "IN");
+        }
+    } else if (rfidReader.isTagPresent && (millis() - rfidReader.lastReadTime >= DEBOUNCE_DELAY)) {
+        // Tag removed
+        logEvent(rfidReader.lastTagId, "OUT");
+        rfidReader.isTagPresent = false;
+        rfidReader.lastTagId[0] = '\0';
+        rfidReader.lastReadTime = millis();
+    }
+}
+
+void logEvent(const char* tag, const char* eventType) {
+    if (eventCount >= MAX_EVENTS) {
+        return;
+    }
+
+    Event& evt = eventQueue[eventCount];
+    snprintf(evt.id, sizeof(evt.id), "evt_%lu_%s", millis() / 1000, tag);
+    strncpy(evt.tag, tag, sizeof(evt.tag));
+    strncpy(evt.event, eventType, sizeof(evt.event));
+    evt.timestamp = millis() / 1000;
+    
+    if (strcmp(eventType, "OUT") == 0 && eventCount > 0) {
+        strncpy(evt.prev_id, eventQueue[eventCount - 1].id, sizeof(evt.prev_id));
+    }
+    
+    eventCount++;
+    saveEventsToSPIFFS();
+    transitionTo(SYNC_PENDING);
+}
+
+void syncEvents() {
+    if (WiFi.status() != WL_CONNECTED) {
+        transitionTo(WIFI_CONNECT);
+        return;
+    }
+
+    for (int i = 0; i < eventCount; i++) {
+        if (sendToWebhook(eventQueue[i])) {
+            removeEvent(i);
+            i--;
+            saveEventsToSPIFFS();
+        } else {
+            handleError("Sync failed");
+            return;
+        }
+    }
+    
+    transitionTo(IDLE);
+}
+
+bool sendToWebhook(const Event& evt) {
+    WiFiClient client;
+    if (!client.connect(WEBHOOK_URL, 80)) {
+        return false;
+    }
+    
+    StaticJsonDocument<200> doc;
+    doc["id"] = evt.id;
+    doc["tag"] = evt.tag;
+    doc["event"] = evt.event;
+    doc["timestamp"] = evt.timestamp;
+    doc["prev_id"] = evt.prev_id;
+    doc["device"] = DEVICE_NAME;
+
+    String payload;
+    serializeJson(doc, payload);
+    
+    client.println("POST / HTTP/1.1");
+    client.println("Host: " WEBHOOK_URL);
+    client.println("Content-Type: application/json");
+    client.println("Content-Length: " + String(payload.length()));
+    client.println();
+    client.println(payload);
+    
+    delay(100);
+    
+    while (client.available()) {
+        String line = client.readStringUntil('\n');
+        if (line.indexOf("200 OK") > 0) {
+            client.stop();
+            return true;
+        }
+    }
+    
+    client.stop();
+    return false;
+}
+
+void removeEvent(int index) {
+    for (int i = index; i < eventCount - 1; i++) {
+        eventQueue[i] = eventQueue[i + 1];
+    }
+    eventCount--;
+}
+
+void loadEventsFromSPIFFS() {
+    File file = SPIFFS.open("/events.json", "r");
+    if (!file) return;
+    
+    StaticJsonDocument<1024> doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    
+    if (error) {
+        handleError("JSON parse failed");
+        return;
+    }
+    
+    eventCount = min((int)doc.size(), MAX_EVENTS);
+    for (int i = 0; i < eventCount; i++) {
+        JsonObject obj = doc[i];
+        strncpy(eventQueue[i].id, obj["id"], sizeof(eventQueue[i].id));
+        strncpy(eventQueue[i].tag, obj["tag"], sizeof(eventQueue[i].tag));
+        strncpy(eventQueue[i].event, obj["event"], sizeof(eventQueue[i].event));
+        eventQueue[i].timestamp = obj["timestamp"];
+        strncpy(eventQueue[i].prev_id, obj["prev_id"], sizeof(eventQueue[i].prev_id));
+    }
+}
+
+void saveEventsToSPIFFS() {
+    StaticJsonDocument<1024> doc;
+    for (int i = 0; i < eventCount; i++) {
+        JsonObject obj = doc.createNestedObject();
+        obj["id"] = eventQueue[i].id;
+        obj["tag"] = eventQueue[i].tag;
+        obj["event"] = eventQueue[i].event;
+        obj["timestamp"] = eventQueue[i].timestamp;
+        obj["prev_id"] = eventQueue[i].prev_id;
+    }
+    
+    File file = SPIFFS.open("/events.json", "w");
+    if (!file) {
+        handleError("File open failed");
+        return;
+    }
+    
+    serializeJson(doc, file);
+    file.close();
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(100);
+    
+    // Initialize state
+    state.currentState = INIT;
+    state.lastStateChange = 0;
+    state.wifiRetryCount = 0;
+    
+    // Initialize RFID reader state
+    rfidReader.lastReadTime = 0;
+    rfidReader.isTagPresent = false;
+    rfidReader.lastTagId[0] = '\0';
+    
+    if (initializeComponents()) {
+        loadEventsFromSPIFFS();
+        transitionTo(WIFI_CONNECT);
+    }
+}
+
+void loop() {
+    switch (state.currentState) {
+        case INIT:
+            if (initializeComponents()) {
+                transitionTo(WIFI_CONNECT);
+            }
+            break;
+            
+        case WIFI_CONNECT:
+            handleWiFiConnection();
+            break;
+            
+        case IDLE:
+            checkRFID();
+            if (eventCount > 0) {
+                transitionTo(SYNC_PENDING);
+            }
+            break;
+            
+        case TAG_SCANNED:
+            transitionTo(SYNC_PENDING);
+            break;
+            
+        case SYNC_PENDING:
+            syncEvents();
+            break;
+            
+        case ERROR:
+            delay(5000);  // Wait before retrying
+            transitionTo(WIFI_CONNECT);
+            break;
+    }
+    
+    delay(10);  // Small delay to prevent tight looping
+}
