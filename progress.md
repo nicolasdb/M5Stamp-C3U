@@ -30,7 +30,7 @@ Validation Results:
 - Payload POST: Successfully sending to webhook
 - n8n Integration: Successfully mapping JSON fields to Supabase table
 
-### Phase 2: SPIFFS Integration
+### Phase 2: SPIFFS Integration ✅
 
 - [x] Initialize SPIFFS and data structure:
   - Create /data folder
@@ -68,57 +68,123 @@ Implementation Notes:
 - Log management functions implemented (write, read, trim)
 - JSON payload enhanced to include recent log entries
 
-### Phase 3: LED Status & RFID Integration
+### Phase 3: Code Refactoring & RFID Preparation
 
-- [ ] LED Status Implementation:
-  - Blue (WiFi Status):
-    - Slow Blink (1s): Attempting connection
-    - Solid Blue: Connected and stable
-    - Fast Blink (0.2s): Reconnecting
-  - Green (Tag Status):
-    - Off: No tag (WiFi connected)
-    - Solid Green: Tag detected
-    - Slow Blink (1s): Payload queued
-    - Fast Blink (0.2s): Processing state change
-  - Red (Error States):
-    - Hardware Errors:
-      - 1 Blink: NFC module error
-      - 2 Blinks: SPIFFS error
-      - 3 Blinks: NTP error
-    - Communication Errors:
-      - Solid Red: Critical error
-      - Slow Blink (1s): Webhook failed
-      - Fast Blink (0.2s): Multiple retries failed
+#### Class Structure Refactoring
 
-- [ ] RFID Integration:
-  - Initialize PN532 module
-  - Implement 1-second read interval
-  - Handle tag state changes:
-    - Insert (new tag detected)
-    - StillHere (same tag present)
-    - Removed (tag gone)
-  - Update LED based on states
-  - Send state changes via webhook
+```mermaid
+classDiagram
+    class TimeTracker {
+        -WiFiManager wifi
+        -TimeManager ntp
+        -StorageManager spiffs
+        -WebhookManager webhook
+        -LEDManager led
+        +setup()
+        +loop()
+    }
+    class WiFiManager {
+        -connectWiFi()
+        -reconnect()
+        +isConnected()
+    }
+    class TimeManager {
+        -syncTime()
+        +getCurrentTime()
+    }
+    class StorageManager {
+        -setupSPIFFS()
+        +writeLogEntry()
+        +getRecentEntries()
+    }
+    class WebhookManager {
+        -buildPayload()
+        +sendPayload()
+        +isLastSendSuccessful()
+    }
+    class LEDManager {
+        -setColor()
+        +showState()
+        +showError()
+    }
+```
+
+#### RFID Integration
+
+```mermaid
+classDiagram
+    class RFIDManager {
+        -PN532 nfc
+        -lastReadTime
+        -currentTagId
+        +setup()
+        +readTag()
+        +isTagPresent()
+        +getTagId()
+    }
+    class TagState {
+        <<enumeration>>
+        NO_TAG
+        TAG_DETECTED
+        TAG_STILL_PRESENT
+        TAG_REMOVED
+    }
+```
+
+Tasks:
+
+- [ ] Refactor existing functionality into dedicated classes
+- [ ] Initialize PN532 module and basic communication
+- [ ] Implement 1-second read interval
+- [ ] Basic tag presence detection
+- [ ] LED status implementation for different states
 
 Validation Checkpoints:
 
-- [ ] LED patterns working for all states
+- [ ] All refactored classes working as expected
 - [ ] PN532 communication established
 - [ ] Tag reading at 1-second intervals
-- [ ] State changes correctly detected
-- [ ] Webhook payload includes tag states
+- [ ] LED patterns working for all states
 
-### Phase 4: NFC Behavior Optimization
-- [ ] Implement selective webhook sending
-- [ ] Manage log.csv (max 100 entries)
-- [ ] Tag state logic:
+### Phase 4: FSM Implementation & Queue Management
+
+#### State Machine Design
+
+```mermaid
+stateDiagram-v2
+    [*] --> NO_TAG
+    NO_TAG --> TAG_DETECTED: Tag Read
+    TAG_DETECTED --> TAG_STILL_PRESENT: Same Tag
+    TAG_STILL_PRESENT --> TAG_REMOVED: No Tag
+    TAG_REMOVED --> NO_TAG: Process Complete
+    
+    state TAG_DETECTED {
+        [*] --> SendPayload
+        SendPayload --> Success: HTTP 200
+        SendPayload --> Queue: HTTP !200
+        Queue --> RetryOnReconnect
+    }
+```
+
+Tasks:
+
+- [ ] Implement FSM for tag state management
+- [ ] Queue management for failed payloads:
   - Empty reader = break
   - New tag = log + payload + break
   - Existing tag = break
   - Tag removal = log + payload
-- [ ] Add post status tracking (boolean field)
-- [ ] Queue failed payloads
-- [ ] Retry on WiFi reconnection
+- [ ] Add post status tracking
+- [ ] Implement retry mechanism on WiFi reconnection
+
+Validation Checkpoints:
+
+- [ ] State transitions working correctly
+- [ ] Queue system handling failed payloads
+- [ ] Retry mechanism working on reconnection
+- [ ] All LED states reflecting current status
+- [ ] Complete system integration test
 
 ## Current Status
-Phase 1 completed successfully. Starting Phase 2 implementation with SPIFFS integration and enhanced logging functionality.
+
+Phase 2 completed successfully. Starting Phase 3 with code refactoring and RFID preparation.
