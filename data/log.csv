@@ -1,1 +1,1 @@
-timestamp,tag_id,event_type,post_status
+timestamp,event_type,tag_present,tag_id,tag_type,wifi_status,time_status,webhook_status

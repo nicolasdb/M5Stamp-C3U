@@ -47,28 +47,32 @@ Implementation Notes:
 - Enhanced debug output with tag type information
 - Improved timing control for stable readings
 
-### Phase 2: WiFi Integration
+### Phase 2: WiFi Integration with NTP Time Sync
 
 ```mermaid
 flowchart TD
     A[Start] --> B[Initialize Hardware]
     B --> C[Connect WiFi]
-    C --> D[Poll RFID]
-    D --> E{Tag Present?}
-    E -->|Yes| F[Set LED Green]
-    E -->|No| G[Set LED Blue]
-    F --> H[Send POST]
-    H -->|Success| I[Debug Output]
-    H -->|Fail| I
-    G --> I
-    I --> J[Wait 1s]
-    J --> D
+    C --> D[Sync NTP Time]
+    D --> E[Poll RFID]
+    E --> F{Tag Present?}
+    F -->|Yes| G[Set LED Green]
+    F -->|No| H[Set LED Blue]
+    G --> I[Send POST]
+    I -->|Success| J[Debug Output]
+    I -->|Fail| J
+    H --> J
+    J --> K[Wait 1s]
+    K --> L{Check Time}
+    L -->|Need Sync| D
+    L -->|OK| E
 ```
 
 Building on validated RFID switch:
 
 - [x] WiFi connection with multi-SSID support
 - [x] Connection status via LED
+- [x] NTP time synchronization
 - [ ] Basic webhook defined in credentials.h
 - [ ] Simple POST on tag detection
 
@@ -76,8 +80,16 @@ Validation Checkpoints:
 
 - [x] WiFi connects reliably
 - [x] LED shows connection status
+- [x] NTP time syncs correctly
+- [x] Timestamps in correct timezone
 - [ ] Webhook receives basic POST
 - [ ] System remains stable
+
+Implementation Notes:
+- Added WiFiManager class for modular WiFi handling
+- Implemented NTP sync with timezone support (UTC+1 Brussels)
+- Enhanced debug output with timestamps and sync status
+- Visual feedback for time sync (purple LED flash)
 
 ### Phase 3: Storage Implementation
 
@@ -150,11 +162,20 @@ Validation Checkpoints:
 
 ## Current Status
 
-Phase 1 completed successfully:
+Phase 2 in progress:
 
-- Implemented reliable RFID detection for multiple tag types
-- Optimized I2C communication and timing
-- Added comprehensive debug output
-- Validated all checkpoints
+✅ Completed:
+- Implemented reliable RFID detection (Phase 1)
+- Added WiFiManager with multi-SSID support
+- Integrated NTP time synchronization
+- Enhanced debug output with timestamps
+- Validated WiFi connection and time sync
 
-Ready to begin Phase 2: WiFi Integration
+🔄 In Progress:
+- Implementing webhook functionality
+- Testing POST requests on tag detection
+
+Next steps:
+- Complete webhook implementation
+- Validate POST request functionality
+- Proceed to Phase 3 (Storage) once webhook is stable

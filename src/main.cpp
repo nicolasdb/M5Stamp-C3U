@@ -3,6 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 #include "config.h"
 #include "wifi_manager.h"
+#include "webhook_manager.h"
 
 // Initialize PN532 using I2C (with IRQ and RESET pins disabled)
 Adafruit_PN532 nfc(-1, -1);  // Use I2C, disable IRQ and RESET pins
@@ -10,8 +11,12 @@ Adafruit_PN532 nfc(-1, -1);  // Use I2C, disable IRQ and RESET pins
 // Initialize NeoPixel
 Adafruit_NeoPixel pixels(1, BUILTIN_LED_PIN, NEO_GRB + NEO_KHZ800);
 
-// Initialize WiFi manager
+// Initialize managers
 WiFiManager wifiManager;
+WebhookManager webhookManager;
+
+// Store last successful tag read
+String lastTagId = "";
 
 // Timing management
 unsigned long lastReadTime = 0;
@@ -112,6 +117,11 @@ void setup() {
             delay(LED_ERROR_BLINK_INTERVAL);
         }
     }
+
+    // Initialize webhook manager
+    if (!webhookManager.begin()) {
+        DEBUG_SERIAL.println("Failed to initialize webhook manager!");
+    }
     
     DEBUG_SERIAL.println("Setup complete!");
     DEBUG_SERIAL.println("-------------------------");
@@ -164,27 +174,53 @@ void loop() {
     
     // Print debug only on state change or new UID
     if (success != lastSuccess || (success && currentUid != lastUid)) {
+        // Update lastTagId on successful read
+        if (success) {
+            lastTagId = currentUid;
+        }
+
         DEBUG_SERIAL.println("\nRFID Poll Result:");
         DEBUG_SERIAL.printf("Timestamp: %s\n", wifiManager.getFormattedTime().c_str());
         DEBUG_SERIAL.printf("Tag Present: %s\n", success ? "YES" : "NO");
+        DEBUG_SERIAL.printf("Tag ID: %s\n", success ? currentUid.c_str() : lastTagId.c_str());
         
         if (success) {
-            DEBUG_SERIAL.printf("Tag ID: %s\n", currentUid.c_str());
-            DEBUG_SERIAL.printf("Tag Type: %s\n", 
-                currentTagType == MIFARE_CLASSIC ? "Mifare Classic (4-byte)" :
-                currentTagType == ISO14443_4 ? "ISO14443-4 (7-byte)" : "Unknown");
+            String tagType = currentTagType == MIFARE_CLASSIC ? "Mifare Classic (4-byte)" :
+                           currentTagType == ISO14443_4 ? "ISO14443-4 (7-byte)" : "Unknown";
+            DEBUG_SERIAL.printf("Tag Type: %s\n", tagType.c_str());
             
             // Print WiFi and time sync status
+            String wifiStatus;
+            String timeStatus;
             if (wifiManager.isConnected()) {
-                DEBUG_SERIAL.printf("WiFi: Connected to %s (%d dBm)\n", 
-                    wifiManager.getCurrentSSID().c_str(),
-                    wifiManager.getRSSI());
-                DEBUG_SERIAL.printf("Time_Status: %s\n", 
-                    wifiManager.isTimeSynced() ? "Synced with NTP" : "Not synced");
+                wifiStatus = String("Connected to ") + wifiManager.getCurrentSSID() + 
+                           String(" (") + String(wifiManager.getRSSI()) + String(" dBm)");
+                timeStatus = wifiManager.isTimeSynced() ? "Synced with NTP" : "Not synced";
+                DEBUG_SERIAL.printf("WiFi: %s\n", wifiStatus.c_str());
+                DEBUG_SERIAL.printf("Time_Status: %s\n", timeStatus.c_str());
             } else {
                 DEBUG_SERIAL.println("WiFi: Disconnected");
                 DEBUG_SERIAL.println("Time_Status: Not synced (No WiFi)");
             }
+        }
+
+        // Send webhook if WiFi connected (for both tag insert and removal)
+        if (wifiManager.isConnected()) {
+            String wifiStatus = String("Connected to ") + wifiManager.getCurrentSSID() + 
+                              String(" (") + String(wifiManager.getRSSI()) + String(" dBm)");
+            String timeStatus = wifiManager.isTimeSynced() ? "Synced with NTP" : "Not synced";
+            String tagType = success ? (currentTagType == MIFARE_CLASSIC ? "Mifare Classic (4-byte)" :
+                                      currentTagType == ISO14443_4 ? "ISO14443-4 (7-byte)" : "Unknown") : "";
+            
+            webhookManager.sendPollResult(
+                success,
+                currentUid,
+                lastTagId,
+                tagType,
+                wifiStatus,
+                timeStatus,
+                wifiManager.getFormattedTime()
+            );
         }
     }
     
