@@ -2,189 +2,159 @@
 
 ## Core Design Principles
 
-1. FSM (Finite State Machine) as main mechanic for tag states and behaviors
+1. Progressive integration with validation between steps
 2. Serial print monitoring for feedback and debug
-3. Structured and documented code for clear organization
-4. Modular functions (input-process-output model)
-5. Step-by-step integration with validation checkpoints
+3. Structured and documented code
+4. Simple and reliable RFID detection
 
 ## Implementation Phases
 
-### Phase 1: Basic Infrastructure ✅
+### Phase 1: RFID Switch Foundation ✅
 
-- [x] Multi SSID connection from credentials.h array
-- [x] NTP time sync for internal clock calibration
-- [x] Button trigger (GPIO 9) for JSON payload POST
-- [x] Basic webhook defined in credentials.h
-- [x] Validation: Successful POST with:
-  - Device name
-  - Internal time
-  - Dummy tagID
-  - Event type
+Starting point: Working RFID switch code from main.cpp
 
-Validation Results:
+```mermaid
+flowchart TD
+    A[Start] --> B[Initialize Hardware]
+    B --> C[Poll RFID]
+    C --> D{Tag Present?}
+    D -->|Yes| E[Set LED Green]
+    D -->|No| F[Set LED Blue]
+    E --> G[Debug Output]
+    F --> G
+    G --> H[Wait 1s]
+    H --> C
+```
 
-- WiFi: Connected successfully
-- NTP Time Sync: Working correctly
-- Button Trigger: Functioning as expected
-- Payload POST: Successfully sending to webhook
-- n8n Integration: Successfully mapping JSON fields to Supabase table
+Core Functionality:
 
-### Phase 2: SPIFFS Integration ✅
-
-- [x] Initialize SPIFFS and data structure:
-  - Create /data folder
-  - Setup log.csv with headers
-  - Implement file management functions
-
-- [x] Log Entry Implementation:
-  - CSV Structure: timestamp,tag_id,event_type,post_status
-  - Maximum 100 entries management
-  - Read/Write operations validation
-
-- [x] Enhanced Payload Structure:
-  - Keep current webhook functionality
-  - Add log_entries array to payload
-  - Include last 3 entries for state tracking
+- [x] Basic RFID tag detection (success true/false)
+- [x] LED feedback (blue=waiting, green=detected)
+- [x] Serial debugging output
+- [x] 1-second polling interval
 
 Validation Checkpoints:
 
-- [x] SPIFFS mount successful
-- [x] log.csv creation/access working
-- [x] Entry writing successful
-- [x] Log content correctly included in webhook payload
-
-Validation Results:
-
-- SPIFFS: Successfully mounted and operational
-- Log Management: Successfully creating and accessing log.csv
-- Entry System: Writing entries on button press
-- Payload Enhancement: Successfully including last 3 log entries
-- All systems integrated and working as expected
+- [x] Consistent tag detection
+- [x] Clear LED state indication
+- [x] Proper serial output
+- [x] Stable operation over time
 
 Implementation Notes:
 
-- SPIFFS filesystem configured in platformio.ini
-- Log management functions implemented (write, read, trim)
-- JSON payload enhanced to include recent log entries
+- Added tag type detection (Mifare Classic 4-byte, ISO14443-4 7-byte)
+- Optimized I2C communication with recovery time
+- Enhanced debug output with tag type information
+- Improved timing control for stable readings
 
-### Phase 3: Code Refactoring & RFID Preparation
-
-#### Class Structure Refactoring
-
-```mermaid
-classDiagram
-    class TimeTracker {
-        -WiFiManager wifi
-        -TimeManager ntp
-        -StorageManager spiffs
-        -WebhookManager webhook
-        -LEDManager led
-        +setup()
-        +loop()
-    }
-    class WiFiManager {
-        -connectWiFi()
-        -reconnect()
-        +isConnected()
-    }
-    class TimeManager {
-        -syncTime()
-        +getCurrentTime()
-    }
-    class StorageManager {
-        -setupSPIFFS()
-        +writeLogEntry()
-        +getRecentEntries()
-    }
-    class WebhookManager {
-        -buildPayload()
-        +sendPayload()
-        +isLastSendSuccessful()
-    }
-    class LEDManager {
-        -setColor()
-        +showState()
-        +showError()
-    }
-```
-
-#### RFID Integration
+### Phase 2: WiFi Integration
 
 ```mermaid
-classDiagram
-    class RFIDManager {
-        -PN532 nfc
-        -lastReadTime
-        -currentTagId
-        +setup()
-        +readTag()
-        +isTagPresent()
-        +getTagId()
-    }
-    class TagState {
-        <<enumeration>>
-        NO_TAG
-        TAG_DETECTED
-        TAG_STILL_PRESENT
-        TAG_REMOVED
-    }
+flowchart TD
+    A[Start] --> B[Initialize Hardware]
+    B --> C[Connect WiFi]
+    C --> D[Poll RFID]
+    D --> E{Tag Present?}
+    E -->|Yes| F[Set LED Green]
+    E -->|No| G[Set LED Blue]
+    F --> H[Send POST]
+    H -->|Success| I[Debug Output]
+    H -->|Fail| I
+    G --> I
+    I --> J[Wait 1s]
+    J --> D
 ```
 
-Tasks:
+Building on validated RFID switch:
 
-- [ ] Refactor existing functionality into dedicated classes
-- [ ] Initialize PN532 module and basic communication
-- [ ] Implement 1-second read interval
-- [ ] Basic tag presence detection
-- [ ] LED status implementation for different states
+- [ ] WiFi connection with multi-SSID support
+- [ ] Connection status via LED
+- [ ] Basic webhook defined in credentials.h
+- [ ] Simple POST on tag detection
 
 Validation Checkpoints:
 
-- [ ] All refactored classes working as expected
-- [ ] PN532 communication established
-- [ ] Tag reading at 1-second intervals
-- [ ] LED patterns working for all states
+- [ ] WiFi connects reliably
+- [ ] LED shows connection status
+- [ ] Webhook receives basic POST
+- [ ] System remains stable
 
-### Phase 4: FSM Implementation & Queue Management
-
-#### State Machine Design
+### Phase 3: Storage Implementation
 
 ```mermaid
-stateDiagram-v2
-    [*] --> NO_TAG
-    NO_TAG --> TAG_DETECTED: Tag Read
-    TAG_DETECTED --> TAG_STILL_PRESENT: Same Tag
-    TAG_STILL_PRESENT --> TAG_REMOVED: No Tag
-    TAG_REMOVED --> NO_TAG: Process Complete
-    
-    state TAG_DETECTED {
-        [*] --> SendPayload
-        SendPayload --> Success: HTTP 200
-        SendPayload --> Queue: HTTP !200
-        Queue --> RetryOnReconnect
-    }
+flowchart TD
+    A[Start] --> B[Initialize Hardware]
+    B --> C[Mount SPIFFS]
+    C --> D[Connect WiFi]
+    D --> E[Poll RFID]
+    E --> F{Tag Present?}
+    F -->|Yes| G[Set LED Green]
+    F -->|No| H[Set LED Blue]
+    G --> I[Write Log]
+    I --> J[Send POST with Logs]
+    H --> K[Debug Output]
+    J --> K
+    K --> L[Wait 1s]
+    L --> E
 ```
 
-Tasks:
+After stable network operation:
 
-- [ ] Implement FSM for tag state management
-- [ ] Queue management for failed payloads:
-  - Empty reader = break
-  - New tag = log + payload + break
-  - Existing tag = break
-  - Tag removal = log + payload
-- [ ] Add post status tracking
-- [ ] Implement retry mechanism on WiFi reconnection
+- [ ] Initialize SPIFFS
+- [ ] Create and manage log.csv
+- [ ] Log tag events with timestamp
+- [ ] Include logs in webhook payload
 
 Validation Checkpoints:
 
-- [ ] State transitions working correctly
-- [ ] Queue system handling failed payloads
-- [ ] Retry mechanism working on reconnection
-- [ ] All LED states reflecting current status
-- [ ] Complete system integration test
+- [ ] SPIFFS mounts properly
+- [ ] Logs written correctly
+- [ ] File rotation works
+- [ ] Payload includes logs
+
+### Phase 4: Enhanced Communication
+
+```mermaid
+flowchart TD
+    A[Start] --> B[Initialize Hardware]
+    B --> C[Mount SPIFFS]
+    C --> D[Connect WiFi]
+    D --> E[Process Queue]
+    E --> F[Poll RFID]
+    F --> G{Tag Present?}
+    G -->|Yes| H[Set LED Green]
+    G -->|No| I[Set LED Blue]
+    H --> J[Write Log]
+    J --> K{Send POST}
+    K -->|Success| L[Debug Output]
+    K -->|Fail| M[Queue Payload]
+    M --> L
+    I --> L
+    L --> N[Wait 1s]
+    N --> E
+```
+
+Once storage is validated:
+
+- [ ] Improved webhook payload structure
+- [ ] Failed payload queueing
+- [ ] Automatic retry on reconnection
+- [ ] Enhanced LED patterns for status
+
+Validation Checkpoints:
+
+- [ ] Payloads sent successfully
+- [ ] Queue system works
+- [ ] Retries function properly
+- [ ] LED patterns are clear
 
 ## Current Status
 
-Phase 2 completed successfully. Starting Phase 3 with code refactoring and RFID preparation.
+Phase 1 completed successfully:
+
+- Implemented reliable RFID detection for multiple tag types
+- Optimized I2C communication and timing
+- Added comprehensive debug output
+- Validated all checkpoints
+
+Ready to begin Phase 2: WiFi Integration
