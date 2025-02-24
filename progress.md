@@ -73,8 +73,8 @@ Building on validated RFID switch:
 - [x] WiFi connection with multi-SSID support
 - [x] Connection status via LED
 - [x] NTP time synchronization
-- [ ] Basic webhook defined in credentials.h
-- [ ] Simple POST on tag detection
+- [x] Basic webhook defined in credentials.h
+- [x] Simple POST on tag detection
 
 Validation Checkpoints:
 
@@ -82,14 +82,17 @@ Validation Checkpoints:
 - [x] LED shows connection status
 - [x] NTP time syncs correctly
 - [x] Timestamps in correct timezone
-- [ ] Webhook receives basic POST
-- [ ] System remains stable
+- [x] Webhook receives basic POST
+- [x] System remains stable
 
 Implementation Notes:
 - Added WiFiManager class for modular WiFi handling
 - Implemented NTP sync with timezone support (UTC+1 Brussels)
 - Enhanced debug output with timestamps and sync status
 - Visual feedback for time sync (purple LED flash)
+- Added WebhookManager for handling POST requests
+- Implemented JSON payload for RFID events (tag_insert/tag_removed)
+- Created Supabase table structure for event logging
 
 ### Phase 3: Storage Implementation
 
@@ -162,7 +165,7 @@ Validation Checkpoints:
 
 ## Current Status
 
-Phase 2 in progress:
+Phase 2 completed ✅, moving to Phase 3:
 
 ✅ Completed:
 - Implemented reliable RFID detection (Phase 1)
@@ -170,12 +173,17 @@ Phase 2 in progress:
 - Integrated NTP time synchronization
 - Enhanced debug output with timestamps
 - Validated WiFi connection and time sync
+- Implemented webhook functionality with JSON payload
+- Created Supabase database structure
+- Validated webhook POST requests for tag events
 
-🔄 In Progress:
-- Implementing webhook functionality
-- Testing POST requests on tag detection
+🔄 Next Phase (Storage Implementation):
+- Initialize SPIFFS
+- Implement local logging
+- Add file rotation mechanism
+- Enhance webhook payload with log data
 
 Next steps:
-- Complete webhook implementation
-- Validate POST request functionality
-- Proceed to Phase 3 (Storage) once webhook is stable
+- Begin SPIFFS implementation
+- Create log file structure
+- Implement file operations
