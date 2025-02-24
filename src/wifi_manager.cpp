@@ -4,7 +4,7 @@
 // External reference to NeoPixel object from main.cpp
 extern Adafruit_NeoPixel pixels;
 
-WiFiManager::WiFiManager() : _isConnected(false), _currentSSID("") {
+WiFiManager::WiFiManager() : _isConnected(false), _timeIsSynced(false), _lastSyncTime(0), _currentSSID("") {
 }
 
 void WiFiManager::updateLEDStatus(uint32_t color) {
@@ -15,7 +15,20 @@ void WiFiManager::updateLEDStatus(uint32_t color) {
 bool WiFiManager::begin() {
     DEBUG_SERIAL.println("\nInitializing WiFi...");
     WiFi.mode(WIFI_STA);
-    return connect();
+    
+    if (!connect()) {
+        return false;
+    }
+    
+    // Once connected, sync time
+    DEBUG_SERIAL.println("Syncing time with NTP server...");
+    if (syncTime()) {
+        DEBUG_SERIAL.printf("Time synced: %s\n", getFormattedTime().c_str());
+        return true;
+    } else {
+        DEBUG_SERIAL.println("Failed to sync time!");
+        return false;
+    }
 }
 
 bool WiFiManager::connectToNetwork(const char* ssid, const char* password) {
@@ -132,4 +145,64 @@ bool WiFiManager::reconnectIfNeeded() {
         return connect();
     }
     return true;
+}
+
+bool WiFiManager::syncTime() {
+    if (!_isConnected) {
+        DEBUG_SERIAL.println("Cannot sync time: WiFi not connected");
+        return false;
+    }
+    
+    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+    
+    // Wait for sync with timeout
+    int retry = 0;
+    const int maxRetries = 10;  // 5 seconds total (500ms * 10)
+    time_t now;
+    
+    while (time(&now) < 1000000000 && retry < maxRetries) {
+        delay(500);
+        retry++;
+        DEBUG_SERIAL.print(".");
+    }
+    DEBUG_SERIAL.println();
+    
+    if (time(&now) > 1000000000) {
+        _timeIsSynced = true;
+        _lastSyncTime = now;
+        
+        // Brief purple flash to indicate successful time sync
+        updateLEDStatus(0xFF00FF);  // Purple
+        delay(200);
+        updateLEDStatus(_isConnected ? COLOR_WIFI_CONNECTED : COLOR_WIFI_CONNECTING);
+        
+        return true;
+    }
+    
+    DEBUG_SERIAL.println("Time sync failed!");
+    _timeIsSynced = false;
+    return false;
+}
+
+time_t WiFiManager::getCurrentTime() const {
+    time_t now;
+    time(&now);
+    return now;
+}
+
+String WiFiManager::getFormattedTime() const {
+    if (!_timeIsSynced) {
+        return "Time not synced";
+    }
+    
+    time_t now;
+    time(&now);
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        return "Time error";
+    }
+    
+    char timeStr[20];
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    return String(timeStr);
 }

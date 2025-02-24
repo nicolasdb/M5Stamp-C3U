@@ -165,6 +165,7 @@ void loop() {
     // Print debug only on state change or new UID
     if (success != lastSuccess || (success && currentUid != lastUid)) {
         DEBUG_SERIAL.println("\nRFID Poll Result:");
+        DEBUG_SERIAL.printf("Timestamp: %s\n", wifiManager.getFormattedTime().c_str());
         DEBUG_SERIAL.printf("Tag Present: %s\n", success ? "YES" : "NO");
         
         if (success) {
@@ -173,13 +174,16 @@ void loop() {
                 currentTagType == MIFARE_CLASSIC ? "Mifare Classic (4-byte)" :
                 currentTagType == ISO14443_4 ? "ISO14443-4 (7-byte)" : "Unknown");
             
-            // Print WiFi status when tag is detected
+            // Print WiFi and time sync status
             if (wifiManager.isConnected()) {
                 DEBUG_SERIAL.printf("WiFi: Connected to %s (%d dBm)\n", 
                     wifiManager.getCurrentSSID().c_str(),
                     wifiManager.getRSSI());
+                DEBUG_SERIAL.printf("Time_Status: %s\n", 
+                    wifiManager.isTimeSynced() ? "Synced with NTP" : "Not synced");
             } else {
                 DEBUG_SERIAL.println("WiFi: Disconnected");
+                DEBUG_SERIAL.println("Time_Status: Not synced (No WiFi)");
             }
         }
     }
