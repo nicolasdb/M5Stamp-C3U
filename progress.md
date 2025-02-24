@@ -67,15 +67,15 @@ flowchart TD
 
 Building on validated RFID switch:
 
-- [ ] WiFi connection with multi-SSID support
-- [ ] Connection status via LED
+- [x] WiFi connection with multi-SSID support
+- [x] Connection status via LED
 - [ ] Basic webhook defined in credentials.h
 - [ ] Simple POST on tag detection
 
 Validation Checkpoints:
 
-- [ ] WiFi connects reliably
-- [ ] LED shows connection status
+- [x] WiFi connects reliably
+- [x] LED shows connection status
 - [ ] Webhook receives basic POST
 - [ ] System remains stable
 
