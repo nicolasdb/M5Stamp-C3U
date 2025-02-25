@@ -86,6 +86,7 @@ Validation Checkpoints:
 - [x] System remains stable
 
 Implementation Notes:
+
 - Added WiFiManager class for modular WiFi handling
 - Implemented NTP sync with timezone support (UTC+1 Brussels)
 - Enhanced debug output with timestamps and sync status
@@ -118,14 +119,57 @@ After stable network operation:
 - [ ] Initialize SPIFFS
 - [ ] Create and manage log.csv
 - [ ] Log tag events with timestamp
-- [ ] Include logs in webhook payload
+- [ ] Include logs in webhook payload for reference
+- [ ] Implement log rotation based on entry count
 
 Validation Checkpoints:
 
 - [ ] SPIFFS mounts properly
 - [ ] Logs written correctly
 - [ ] File rotation works
-- [ ] Payload includes logs
+
+Implementation Details:
+
+1. **SPIFFS Manager Class (`spiffs_manager.h/cpp`)**
+
+   ```cpp
+   class SPIFFSManager {
+       public:
+           bool begin();
+           bool writeLog(const LogEntry& entry);
+           String readLogs(int count = -1);  // -1 for all logs
+           bool clearLogs();
+           int getLogEntryCount();
+           bool rotateLogIfNeeded();
+   };
+   ```
+
+2. **Log Entry Structure**
+
+   ```cpp
+   struct LogEntry {
+       String timestamp;
+       String event_type;
+       bool tag_present;
+       String tag_id;
+       String tag_type;
+       String wifi_status;
+       String time_status;
+       String webhook_status;
+   };
+   ```
+
+3. **Log Rotation Strategy**
+   - Set maximum number of entries (e.g., 1000) instead of file size
+   - When limit reached:
+     - Create backup of current log as `log_backup.csv`
+     - Start fresh log file
+     - Delete oldest backup if space needed
+
+4. **Integration Points**
+   - Mount SPIFFS in setup()
+   - Add log writing in main loop after webhook call
+   - Add log status to debug output
 
 ### Phase 4: Enhanced Communication
 
@@ -152,9 +196,10 @@ flowchart TD
 Once storage is validated:
 
 - [ ] Improved webhook payload structure
-- [ ] Failed payload queueing
+- [ ] Failed payload queueing with exponential backoff
 - [ ] Automatic retry on reconnection
 - [ ] Enhanced LED patterns for status
+- [ ] Memory optimization and heap monitoring
 
 Validation Checkpoints:
 
@@ -162,12 +207,72 @@ Validation Checkpoints:
 - [ ] Queue system works
 - [ ] Retries function properly
 - [ ] LED patterns are clear
+- [ ] Memory usage remains stable
+
+Implementation Details:
+
+1. **Enhanced WiFi Resilience**
+   - Add connection state machine in WiFiManager
+   - Implement exponential backoff for reconnection attempts
+   - Cache DNS resolution
+   - Add WiFi signal strength monitoring
+
+2. **Webhook Queue System**
+
+   ```cpp
+   struct QueuedWebhook {
+       String payload;
+       unsigned long timestamp;
+       int retryCount;
+   };
+   ```
+
+   - Store failed webhooks in SPIFFS queue
+   - Implement retry mechanism with backoff
+   - Process queue on WiFi reconnection
+
+3. **Backoff Strategy**
+
+   ```cpp
+   unsigned long getBackoffDelay(int retryCount) {
+       // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+       return 5000 * (1 << retryCount);  // 2^retryCount * 5000ms
+   }
+   ```
+
+   - Prevents overwhelming the server/network
+   - Saves power/resources
+   - More likely to succeed after waiting
+
+4. **Heap Monitoring**
+
+   ```cpp
+   void checkHeapHealth() {
+       size_t freeHeap = ESP.getFreeHeap();
+       if (freeHeap < HEAP_WARNING_THRESHOLD) {
+           // Log warning
+           // Trigger LED warning pattern
+       }
+   }
+   ```
+
+   - Tracks ESP32's dynamic memory usage
+   - Prevents crashes from memory exhaustion
+   - Provides early warning of memory leaks
+
+5. **LED Status Patterns**
+   - Add patterns for:
+     - Queue processing (yellow pulse)
+     - SPIFFS errors (red rapid blink)
+     - Webhook retrying (purple pulse)
+     - Low memory warning (orange blink)
 
 ## Current Status
 
 Phase 2 completed ✅, moving to Phase 3:
 
 ✅ Completed:
+
 - Implemented reliable RFID detection (Phase 1)
 - Added WiFiManager with multi-SSID support
 - Integrated NTP time synchronization
@@ -178,12 +283,17 @@ Phase 2 completed ✅, moving to Phase 3:
 - Validated webhook POST requests for tag events
 
 🔄 Next Phase (Storage Implementation):
+
 - Initialize SPIFFS
-- Implement local logging
-- Add file rotation mechanism
+- Implement SPIFFSManager class
+- Create log entry structure
+- Implement log rotation based on entry count
 - Enhance webhook payload with log data
 
 Next steps:
-- Begin SPIFFS implementation
-- Create log file structure
-- Implement file operations
+
+1. Create `spiffs_manager.h` and `spiffs_manager.cpp`
+2. Define LogEntry structure
+3. Implement SPIFFS initialization in setup()
+4. Add log writing after webhook calls
+5. Implement log rotation based on entry count

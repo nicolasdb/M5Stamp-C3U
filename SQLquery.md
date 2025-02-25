@@ -95,7 +95,7 @@ INSERT INTO rfid_events (
 
 3. Supabase Node Configuration:
    - Add new credentials
-     - Host: Your Supabase project URL (e.g., https://xxxxxxxxxxxx.supabase.co)
+     - Host: Your Supabase project URL (e.g., `https://xxxxxxxxxxxx.supabase.co`)
      - Service Role Key: Paste the key from step 1
      - Name these credentials (e.g., "RFID-Supabase")
    - Operation: Insert
