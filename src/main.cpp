@@ -170,6 +170,7 @@ void loop() {
             currentUid += String(uid[i], HEX);
             currentUid += " ";
         }
+        currentUid.trim(); // Remove trailing whitespace
     }
     
     // Print debug only on state change or new UID
