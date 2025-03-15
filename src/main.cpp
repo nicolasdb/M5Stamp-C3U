@@ -15,8 +15,8 @@
 Adafruit_MCP23X17 mcp; 
 
 // Replace with your network credentials
-const char* ssid = "OpenFab";
-const char* password = "defensedefumer";
+const char* ssid = "SSID";
+const char* password = "psw";
 
 // Set LED GPIO
 int ledPin = 2;                // MCP23017 pin LED
